@@ -2,9 +2,8 @@
 
 # Análisis de Consumo de Café (`coffee_intake_project`) ☕
 
-![Café](https://img.shields.io/badge/Análisis%20de-Café-brown)
+![Ingesta de Cafe](https://img.shields.io/badge/Análisis%20de-Café-brown)
 ![Python](https://img.shields.io/badge/Hecho%20con-Python-blue)
-![Pandas](https://img.shields.io/badge/Librería-Pandas-green)
 
 ## 📖 Descripción
 
@@ -49,8 +48,10 @@ Sigue estos pasos para tener una copia local del proyecto y poder ejecutar el an
     ```
 
 3.  **Instala las dependencias:**
-    uv init -> uv sync y listo, la magia de uv
-
+    ```sh
+    uv init
+    uv sync # Y listo, la magia de uv
+    ```
 ## 💻 Uso
 
 Para ejecutar el análisis, puedes abrir y correr los notebooks de Jupyter o los scripts de Python en el orden adecuado.
