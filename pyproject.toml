@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "imblearn>=0.0",
     "import-ipynb>=0.2",
     "mlflow>=3.5.1",
     "pandas>=2.3.2",
