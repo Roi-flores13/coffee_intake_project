@@ -22,8 +22,7 @@ Este repositorio corresponde a la primera entrega del proyecto, donde se sientan
 
 El conjunto de datos utilizado en este análisis contiene información sobre **[Describe brevemente el dataset, por ejemplo: "respuestas de una encuesta sobre hábitos de consumo de café, incluyendo variables como edad, género, frecuencia de consumo, tipo de café preferido, etc."]**
 
-*Puedes agregar aquí un enlace al origen de los datos si es público, o una descripción más detallada de las columnas.*
-
+<a href="https://www.kaggle.com/datasets/uom190346a/global-coffee-health-dataset">Global Coffee Health Dataset</a>
 ## 🚀 Cómo Empezar
 
 Sigue estos pasos para tener una copia local del proyecto y poder ejecutar el análisis.
