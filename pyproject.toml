@@ -5,9 +5,11 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "hyperopt>=0.2.7",
     "import-ipynb>=0.2",
-    "mlflow>=3.5.1",
+    "mlflow[databricks]>=3.5.1",
     "pandas>=2.3.2",
     "polars>=1.33.1",
     "scikit-learn>=1.7.2",
+    "seaborn>=0.13.2",
 ]
