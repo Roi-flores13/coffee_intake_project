@@ -6,6 +6,7 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import f1_score
 from sklearn.model_selection import cross_val_score
 
+from prefect import flow, task
 
 import pandas as pd
 import numpy as np
@@ -25,27 +26,15 @@ from mlflow.models import infer_signature
 from optuna_utils import define_search_space
 from preprocessing import create_preprocessing_pipeline
 
-
 load_dotenv(override=True) # Cargar las variables de entorno desde el archivo .env
+
+# ----------------- Definimos variables locales -------------------------------
 EXPERIMENT_NAME = "/Users/roiflores.2213@gmail.com/coffee-intake-experiments" 
-
-mlflow.set_tracking_uri("databricks")
-experiment = mlflow.set_experiment(experiment_name=EXPERIMENT_NAME)
-
-
-df = pd.read_csv("../data/raw/synthetic_coffee_health_10000.csv")
-
-X_train, X_test, y_train, y_test = train_test_split(df.drop("Sleep_Quality", axis=1), df["Sleep_Quality"],
-                                                    test_size=0.2, random_state=88, stratify=df[["Sleep_Quality"]])
-
-model_config = {
-    "LogisticRegression": {"model_class":LogisticRegression(random_state=42)},
-    "RandomForest": {"model_class": RandomForestClassifier(random_state=42)},
-    "MLP": {"model_class": MLPClassifier(random_state=42)}
-}
+DATA_PATH = "../data/raw/synthetic_coffee_health_10000.csv"
+MODEL_REGISTRY = "workspace.default.coffee-intake-experiments"
 MAX_EVALS_PER_MODEL=15
 
-columns_to_drop = [
+COLUMNS_TO_DROP = [
     "Coffee_Intake",
     "Gender_Other",
     "Occupation_Other",
@@ -53,14 +42,16 @@ columns_to_drop = [
     "Health_Issues",
     "Stress_Level",
 ]
+# -----------------------------------------------------------------------------
 
-def objective(trial, model_class, model_name):
+
+def objective(trial, model_class, model_name, X_train, y_train):
     
     full_params = define_search_space(trial, model_name) #Uses the parameter space from optuna_utils.py
     
     model = model_class.set_params(**full_params) # Unpacks the parameters and sets up the model with those
     
-    preprocessing_pipeline = create_preprocessing_pipeline(columns_to_drop) # Creates a pipeline using the preprocessing seen before
+    preprocessing_pipeline = create_preprocessing_pipeline(COLUMNS_TO_DROP) # Creates a pipeline using the preprocessing seen before
     
     full_trial_pipeline = Pipeline([
         ("preprocessor", preprocessing_pipeline), 
@@ -72,8 +63,26 @@ def objective(trial, model_class, model_name):
     
     return score
 
+@task(name="Load Data", retries=3, retry_delay_seconds=3)
+def load_data(path: str) -> pd.DataFrame:
+    return pd.read_csv(path)
 
-for model_name, config in model_config.items():
+@task(name="Split Data")
+def split_data(df: pd.DataFrame):
+    X = df.drop("Sleep_Quality", axis=1)
+    y = df["Sleep_Quality"]
+    
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2,
+                                                        random_state=42, stratify=y)
+    
+    return X_train, X_test, y_train, y_test
+
+@task(name="Run HPO", log_prints=True)
+def run_hpo(model_name, config, X_train, y_train,):
+    
+    mlflow.set_tracking_uri("databricks")
+    mlflow.set_experiment(EXPERIMENT_NAME)
+    
     with mlflow.start_run(run_name=f"{model_name}_HPO") as parent_run:
         
         kwargs = {"nested": True} #Indica que el run es nested
@@ -89,7 +98,9 @@ for model_name, config in model_config.items():
         obj_func = partial(
             objective, # Goes into objective function
             model_class=config["model_class"],
-            model_name=model_name
+            model_name=model_name,
+            X_train=X_train,
+            y_train=y_train
         )
         
         study.optimize(
@@ -117,7 +128,7 @@ for model_name, config in model_config.items():
         best_model_instance = config["model_class"].set_params(**best_params_cleaned) # Chooses the best model and its parameters
         
         # Creates a new pipeline to preprocess and fit with the whole data 
-        final_preprocessing = create_preprocessing_pipeline(columns_to_drop) 
+        final_preprocessing = create_preprocessing_pipeline(COLUMNS_TO_DROP) 
         
         final_production_pipeline = Pipeline([
             ("preprocessor", final_preprocessing),
@@ -141,44 +152,81 @@ for model_name, config in model_config.items():
             signature=signature,
             input_example=example_data
         )
-        
-model_registry = "workspace.default.coffee-intake-experiments"
-runs = mlflow.search_runs(
-    experiment_names=[EXPERIMENT_NAME],
-    order_by= ["metrics.F1_score DESC"],
-    output_format="list"
-)
-
-if len(runs) > 0:
+    
+    return best_f1_metric
+    
+@task(name="Register and Promote Models")
+def register_and_promote():
+    
+    mlflow.set_tracking_uri("databricks")
+    
+    runs = mlflow.search_runs()
+    
+    runs = mlflow.search_runs(
+        experiment_names=[EXPERIMENT_NAME],
+        order_by= ["metrics.F1_score DESC"],
+        output_format="list"
+    )
+    
+    if len(runs) < 2:
+        print("Se necesitan dos modelos para tener challenger y champion")
+        return
+    
     best_run = runs[0]
     second_best = runs[1]
     
-result_champ = mlflow.register_model(
-    model_uri=f"runs:/{best_run.info.run_id}/model",
-    name=model_registry
-)
+    result_champ = mlflow.register_model(
+        model_uri=f"runs:/{best_run.info.run_id}/model",
+        name=MODEL_REGISTRY
+    )
+    
+    result_chall = mlflow.register_model(
+        model_uri=f"runs:/{second_best.info.run_id}/model",
+        name=MODEL_REGISTRY
+    )
+    
+    
+    client = MlflowClient()
+    model_chall_version = result_chall.version # Callenger version
+    model_champ_version = result_champ.version # Champion version
+    challenger_alias ="Challenger"
+    champ_alias ="Champion"
 
-result_chall = mlflow.register_model(
-    model_uri=f"runs:/{second_best.info.run_id}/model",
-    name=model_registry
-)
+    # Challenger alias setter
+    client.set_registered_model_alias(
+        name=MODEL_REGISTRY,
+        alias=challenger_alias,
+        version=model_chall_version
+    )
 
-client = MlflowClient()
-model_chall_version = result_chall.version # Callenger version
-model_champ_version = result_champ.version # Champion version
-challenger_alias ="Challenger"
-champ_alias ="Champion"
+    # Champion alias setter
+    client.set_registered_model_alias(
+        name=MODEL_REGISTRY,
+        alias=champ_alias,
+        version= model_champ_version
+    )
+    
+        
+@flow(name="Training Pipeline", log_prints=True)
+def training_pipeline():
 
-# Challenger alias setter
-client.set_registered_model_alias(
-    name=model_registry,
-    alias=challenger_alias,
-    version=model_chall_version
-)
-
-# Champion alias setter
-client.set_registered_model_alias(
-    name=model_registry,
-    alias=champ_alias,
-    version= model_champ_version
-)
+    df = load_data(DATA_PATH)
+    X_train, X_test, y_train, y_test = split_data(df)
+    
+    model_config = {
+        "LogisticRegression": {"model_class":LogisticRegression(random_state=42)},
+        "RandomForest": {"model_class": RandomForestClassifier(random_state=42)},
+        "MLP": {"model_class": MLPClassifier(random_state=42)}
+    }
+    
+    for name, config in model_config.items():
+        run_hpo(model_name=name,
+                config=config, 
+                X_train=X_train,
+                y_train=y_train)
+        
+    register_and_promote()
+    
+            
+if __name__ == "__main__":
+    training_pipeline()
