@@ -4,8 +4,6 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import OrdinalEncoder, RobustScaler, OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
-from hyperopt import hp
-from hyperopt.pyll.base import scope
 
 # --- CLASE 1: DATA WRANGLER ---
 class DataWrangler(BaseEstimator, TransformerMixin):

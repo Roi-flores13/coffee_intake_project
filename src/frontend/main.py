@@ -1,9 +1,10 @@
 import streamlit as st
 import requests
+import os
 
 # --- Configuración de la conexión local ---
 # Apunta directamente a tu API corriendo en tu máquina
-API_URL = "http://127.0.0.1:8000/api/v1/predict"
+API_URL = os.getenv("API_URL", "http://localhost:8000/api/v1/predict")
 
 st.set_page_config(page_title="Predicción de Sueño", page_icon="☕")
 

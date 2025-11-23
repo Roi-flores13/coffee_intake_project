@@ -30,7 +30,7 @@ load_dotenv(override=True) # Cargar las variables de entorno desde el archivo .e
 
 # ----------------- Definimos variables locales -------------------------------
 EXPERIMENT_NAME = "/Users/roiflores.2213@gmail.com/coffee-intake-experiments" 
-DATA_PATH = "../data/raw/synthetic_coffee_health_10000.csv"
+DATA_PATH = "../../data/raw/synthetic_coffee_health_10000.csv"
 MODEL_REGISTRY = "workspace.default.coffee-intake-experiments"
 MAX_EVALS_PER_MODEL=15
 
