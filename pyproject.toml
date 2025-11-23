@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "fastapi>=0.121.0",
     "hyperopt>=0.2.7",
     "imblearn>=0.0",
     "import-ipynb>=0.2",
@@ -13,6 +14,9 @@ dependencies = [
     "optuna-integration[mlflow]>=4.6.0",
     "pandas>=2.3.2",
     "polars>=1.33.1",
+    "prefect>=3.6.3",
     "scikit-learn>=1.7.2",
     "seaborn>=0.13.2",
+    "streamlit>=1.51.0",
+    "uvicorn>=0.38.0",
 ]
