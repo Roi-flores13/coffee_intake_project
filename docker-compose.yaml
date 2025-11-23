@@ -1,0 +1,31 @@
+services:
+  # Servicio 1: Tu API de FastAPI
+  api:
+    build: ./src/backend/.         # Construye la imagen usando el Dockerfile en esta carpeta
+    container_name: coffee_api
+    ports:
+      - "8000:8000"              # Mapea puerto host:contenedor
+    env_file:
+      - .env                     # Pasa tus credenciales de Databricks al contenedor
+    networks:
+      - coffee_network
+
+  # Servicio 2: Tu UI de Streamlit
+  frontend:
+    build: ./src/frontend/.       # Construye la imagen usando el Dockerfile en esta carpeta
+    container_name: coffee_ui
+    ports:
+      - "8501:8501"              # Accederás a la UI en localhost:8501
+    environment:
+      # IMPORTANTE: Aquí le decimos al frontend dónde está la API.
+      # En Docker, usamos el nombre del servicio ("api") como hostname.
+      - API_URL=http://api:8000/api/v1/predict
+    depends_on:
+      - api                      # Espera a que la API inicie antes de iniciar el frontend
+    networks:
+      - coffee_network
+
+# Definimos una red privada para que se comuniquen entre ellos
+networks:
+  coffee_network:
+    driver: bridge
