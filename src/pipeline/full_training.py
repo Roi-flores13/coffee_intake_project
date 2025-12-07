@@ -58,7 +58,7 @@ def objective(trial, model_class, model_name, X_train, y_train):
         ("model", model)
     ])
     
-    score = cross_val_score(full_trial_pipeline, X_train, y_train,       # Cross validates the model with the parameter and returns the score
+    score = cross_val_score(full_trial_pipeline, X_train, y_train, # Cross validates the model with the parameter and returns the score
                             cv=3, scoring="f1_weighted", error_score="raise").mean() 
     
     return score
